@@ -1,0 +1,1820 @@
+<!doctype html>
+<html lang="ca">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>v4-1</title>
+
+  <style>
+    :root {
+      --app-h: 100dvh;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --gold: #f2cf7b;
+      --gold-2: #ffd98f;
+      --ink: #0c0813;
+      --panel: rgba(15, 10, 24, 0.9);
+      --line: rgba(255,255,255,0.14);
+      --text: rgba(255,255,255,0.96);
+      --muted: rgba(255,255,255,0.74);
+      --shadow: 0 24px 80px rgba(0,0,0,0.45);
+      --accent-shadow: 0 20px 48px rgba(242, 207, 123, 0.24);
+      --footer-h: 0px;
+    }
+
+    * { box-sizing:border-box; }
+
+    html, body {
+      margin:0;
+      padding:0;
+      width:100%;
+      height:var(--app-h);
+      min-height:var(--app-h);
+      background:#000;
+      overflow:hidden;
+      overscroll-behavior:none;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
+
+    #desktopBands {
+      display:flex;
+      height:var(--app-h);
+      width:100vw;
+      justify-content:center;
+      align-items:center;
+      background:#000;
+    }
+
+    .band {
+      flex:1;
+      background: #000 url("assets/img/background_laterals.png") center / cover no-repeat;
+    }
+
+    @media (max-aspect-ratio: 9/16) {
+      .band { display:none; }
+      #desktopBands { justify-content:center; }
+    }
+
+    #gameWrap {
+      position:relative;
+      height:var(--app-h);
+      aspect-ratio:9/16;
+      max-width:100vw;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      isolation:isolate;
+      overflow:hidden;
+      background:#000;
+    }
+
+    canvas {
+      width:100%;
+      height:100%;
+      display:block;
+      touch-action:none;
+    }
+
+    #subtitle {
+      position:absolute;
+      left:50%;
+      bottom:calc(var(--footer-h) + 20px);
+      transform:translateX(-50%);
+      width:92%;
+      padding:14px 18px;
+      border-radius:16px;
+      background:rgba(0,0,0,0.55);
+      color:rgba(255,255,255,0.92);
+      font:600 1.7vh/1.25 system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      text-align:center;
+      letter-spacing:0.2px;
+      pointer-events:none;
+      z-index:2;
+    }
+
+    #subtitle.hidden {
+      display:none !important;
+    }
+
+    #characterSelect {
+      position:absolute;
+      inset:0;
+      z-index:20;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:clamp(10px, 2vw, 24px);
+      padding-top:max(clamp(10px, 2vw, 24px), var(--safe-top));
+      padding-bottom:max(calc(var(--footer-h) + 12px), var(--safe-bottom));
+      background:
+        radial-gradient(circle at 50% 12%, rgba(242,207,123,0.18), transparent 24%),
+        radial-gradient(circle at 50% 78%, rgba(255,255,255,0.07), transparent 30%),
+        linear-gradient(180deg, rgba(7,7,12,0.34), rgba(7,7,12,0.82)),
+        #050509;
+      backdrop-filter: blur(8px);
+      transition:opacity 280ms ease;
+    }
+
+    #characterSelect.hidden {
+      opacity:0;
+      pointer-events:none;
+    }
+
+    .selector-panel {
+      width:min(96vw, 760px);
+      height:min(calc(var(--app-h) - var(--safe-top) - var(--safe-bottom) - 20px), 1040px);
+      min-height:0;
+      max-height:calc(var(--app-h) - var(--safe-top) - var(--safe-bottom) - 20px);
+      display:flex;
+      flex-direction:column;
+      border:1px solid var(--line);
+      border-radius:32px;
+      background:linear-gradient(180deg, rgba(27,18,42,0.94), rgba(12,8,20,0.97));
+      box-shadow:var(--shadow);
+      overflow:hidden;
+      position:relative;
+      padding-bottom:100px;
+    }
+
+    .selector-panel::before {
+      content:"";
+      position:absolute;
+      inset:0 0 auto 0;
+      height:180px;
+      background:linear-gradient(180deg, rgba(255,255,255,0.05), transparent);
+      pointer-events:none;
+    }
+
+    .selector-header {
+      position:relative;
+      z-index:2;
+      text-align:center;
+      padding:24px 24px 10px;
+    }
+
+    .selector-kicker {
+      font-size:12px;
+      letter-spacing:0.24em;
+      text-transform:uppercase;
+      color:var(--gold-2);
+      opacity:0.95;
+      margin-bottom:10px;
+    }
+
+    .selector-title {
+      margin:0;
+      color:var(--text);
+      font-size:clamp(30px, 4.2vw, 44px);
+      line-height:1.02;
+    }
+
+    .character-stage {
+      position:relative;
+      flex:1 1 auto;
+      min-height:0;
+      padding:4px 36px 8px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      perspective:1600px;
+      overflow:hidden;
+    }
+
+    .character-stack {
+      position:relative;
+      width:min(100%, 760px);
+      height:100%;
+      min-height:320px;
+      transform-style:preserve-3d;
+      z-index:1;
+    }
+
+    .character-card {
+      --offset: 0;
+      --abs-offset: 0;
+      position:absolute;
+      left:50%;
+      top:50%;
+      width:clamp(156px, 29vw, 228px);
+      aspect-ratio:0.72;
+      border:1px solid rgba(255,255,255,0.12);
+      border-radius:24px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.11), rgba(255,255,255,0.03)),
+        linear-gradient(180deg, rgba(27, 18, 42, 0.92), rgba(10, 8, 16, 0.96));
+      overflow:hidden;
+      cursor:pointer;
+      color:var(--text);
+      box-shadow:0 16px 34px rgba(0,0,0,0.34);
+      transform-style:preserve-3d;
+      transition:
+        transform 560ms cubic-bezier(.2,.8,.2,1),
+        opacity 320ms ease,
+        box-shadow 320ms ease,
+        border-color 320ms ease,
+        filter 320ms ease,
+        width 560ms cubic-bezier(.2,.8,.2,1);
+      transform:
+        translate(-50%, -50%)
+        translateX(calc(var(--offset) * 110px))
+        translateY(calc(var(--abs-offset) * 18px + 24px))
+        rotateZ(calc(var(--offset) * 4deg))
+        rotateX(10deg)
+        rotateY(calc(var(--offset) * -12deg))
+        scale(calc(1 - var(--abs-offset) * 0.06));
+      z-index:calc(100 - var(--abs-offset));
+      opacity:calc(1 - min(var(--abs-offset) * 0.16, 0.56));
+      filter:saturate(calc(1 - var(--abs-offset) * 0.08));
+    }
+
+    .character-card::before {
+      content:"";
+      position:absolute;
+      inset:auto -20% -16% -20%;
+      height:42%;
+      background:radial-gradient(circle at 50% 40%, rgba(242,207,123,0.26), transparent 62%);
+      pointer-events:none;
+      transform:translateZ(16px);
+    }
+
+    .character-card::after {
+      content:"";
+      position:absolute;
+      inset:0;
+      border-radius:inherit;
+      background:linear-gradient(180deg, rgba(255,255,255,0.08), transparent 26%, transparent 74%, rgba(0,0,0,0.18));
+      pointer-events:none;
+    }
+
+    .character-card:hover,
+    .character-card:focus-visible {
+      outline:none;
+      border-color:rgba(242,207,123,0.42);
+    }
+
+    .character-card.is-selected {
+      border-color:rgba(242,207,123,0.92);
+      box-shadow:var(--accent-shadow), 0 26px 50px rgba(0,0,0,0.42);
+      filter:saturate(1.08) brightness(1.02);
+    }
+
+    .character-card.is-expanded {
+      width:min(88%, 520px);
+      max-height:min(72vh, 1000px);
+      transform:
+        translate(-50%, -50%)
+        translateX(0)
+        translateY(-12px)
+        rotateZ(0deg)
+        rotateX(0deg)
+        rotateY(0deg)
+        scale(1);
+      z-index:500 !important;
+      opacity:1;
+      box-shadow:0 34px 90px rgba(0,0,0,0.54), 0 0 0 1px rgba(242,207,123,0.65);
+    }
+
+    .character-card.is-expanded .card-art {
+      padding:18px 18px 86px;
+    }
+
+    .character-card.is-faded {
+      opacity:0.18;
+      filter:blur(1px) saturate(0.8);
+      pointer-events:none;
+    }
+
+    .card-art {
+      position:absolute;
+      inset:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:16px 14px 58px;
+    }
+
+    .card-art img {
+      width:100%;
+      height:100%;
+      object-fit:contain;
+      image-rendering:pixelated;
+      transform:translateY(-3px) translateZ(26px);
+      filter:drop-shadow(0 18px 24px rgba(0,0,0,0.32));
+      user-select:none;
+      pointer-events:none;
+    }
+
+    .portrait-fallback {
+      width:100%;
+      height:100%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-weight:900;
+      letter-spacing:0.1em;
+      color:var(--gold-2);
+      font-size:clamp(20px, 4.4vw, 34px);
+    }
+
+    .card-name {
+      position:absolute;
+      left:12px;
+      right:12px;
+      bottom:12px;
+      padding:11px 12px;
+      border-radius:16px;
+      background:rgba(8,8,14,0.56);
+      border:1px solid rgba(255,255,255,0.1);
+      backdrop-filter:blur(10px);
+      text-align:center;
+      font-size:clamp(14px, 2vw, 18px);
+      font-weight:900;
+      letter-spacing:0.12em;
+      text-transform:uppercase;
+      transform:translateZ(30px);
+    }
+
+
+    .selector-arrows {
+      position:absolute;
+      inset:50% 18px auto 18px;
+      transform:translateY(-50%);
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      pointer-events:none;
+      z-index:30;
+    }
+
+    .selector-arrow {
+      width:54px;
+      height:54px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,0.18);
+      background:rgba(8,8,14,0.58);
+      color:var(--gold-2);
+      display:grid;
+      place-items:center;
+      font-size:28px;
+      font-weight:900;
+      box-shadow:0 12px 28px rgba(0,0,0,0.24);
+      backdrop-filter:blur(8px);
+      pointer-events:auto;
+      cursor:pointer;
+      transition:transform 160ms ease, border-color 160ms ease, background 160ms ease;
+    }
+
+    .selector-arrow:hover,
+    .selector-arrow:focus-visible {
+      outline:none;
+      transform:scale(1.06);
+      border-color:rgba(242,207,123,0.75);
+      background:rgba(18,12,28,0.9);
+    }
+
+    .selector-arrow span {
+      transform:translateY(-1px);
+      pointer-events:none;
+    }
+
+
+
+    .character-preview-overlay {
+      position:absolute;
+      inset:0 0 90px 0;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:flex-start;
+      padding-top:50vh;
+      box-sizing:border-box;
+      pointer-events:none;
+      z-index:6;
+      overflow:hidden;
+    }
+
+    .character-preview-overlay img {
+      width:min(96vw, 980px);
+      height:min(82vh, 1180px);
+      object-fit:contain;
+      image-rendering:pixelated;
+      opacity:0;
+      transform:translateX(-120px) translateY(8px) scale(0.985);
+      filter:drop-shadow(0 22px 40px rgba(0,0,0,0.28));
+      transition:opacity 240ms ease, transform 260ms ease;
+      will-change:opacity, transform;
+    }
+
+    .character-preview-overlay.is-visible img {
+      opacity:1;
+      transform:translateX(-120px) translateY(0) scale(1);
+      animation:characterPreviewPulse 460ms ease;
+    }
+
+    @keyframes characterPreviewPulse {
+      0% { opacity:0; transform:translateX(-120px) translateY(12px) scale(0.98); }
+      55% { opacity:1; transform:translateX(-120px) translateY(0) scale(1); }
+      100% { opacity:1; transform:translateX(-120px) translateY(0) scale(1); }
+    }
+
+    .selector-actions {
+      position:absolute;
+      left:16px;
+      right:16px;
+      bottom:max(calc(var(--footer-h) + 12px), var(--safe-bottom));
+      z-index:40;
+      display:flex;
+      flex-direction:column;
+      gap:14px;
+      pointer-events:none;
+    }
+
+    .selector-actions > * {
+      pointer-events:auto;
+    }
+
+    .play-btn {
+      appearance:none;
+      border:0;
+      border-radius:20px;
+      padding:18px 18px;
+      font:900 16px/1 system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      letter-spacing:0.08em;
+      text-transform:uppercase;
+      cursor:pointer;
+      color:#1a1204;
+      background:linear-gradient(180deg, #ffe09c, #f2c55c);
+      box-shadow:0 14px 28px rgba(0,0,0,0.28);
+      transition:transform 160ms ease, filter 160ms ease, opacity 160ms ease;
+    }
+
+    .play-btn:hover,
+    .play-btn:focus-visible {
+      transform:translateY(-1px);
+      filter:brightness(1.04);
+      outline:none;
+    }
+
+    .play-btn:disabled {
+      opacity:0.55;
+      cursor:not-allowed;
+      transform:none;
+      filter:none;
+    }
+
+    #globalAudioFooter {
+      position:absolute;
+      left:0;
+      right:0;
+      bottom:0;
+      z-index:9999;
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:14px;
+      align-items:center;
+      min-height:var(--footer-h);
+      padding:12px 16px calc(12px + env(safe-area-inset-bottom));
+      border-top:1px solid rgba(255,255,255,0.08);
+      background:linear-gradient(180deg, rgba(11,11,17,0.78), rgba(11,11,17,0.94));
+      backdrop-filter:blur(14px);
+      box-shadow:0 -14px 34px rgba(0,0,0,0.24);
+    }
+
+    .audio-box {
+      display:flex;
+      align-items:center;
+      gap:12px;
+      min-width:0;
+    }
+
+    .audio-label {
+      color:var(--text);
+      font-size:12px;
+      letter-spacing:0.2em;
+      text-transform:uppercase;
+      white-space:nowrap;
+    }
+
+    .audio-slider-wrap {
+      display:flex;
+      align-items:center;
+      gap:10px;
+      width:100%;
+      min-width:0;
+    }
+
+    .audio-slider {
+      -webkit-appearance:none;
+      appearance:none;
+      width:100%;
+      height:6px;
+      border-radius:999px;
+      background:linear-gradient(90deg, var(--gold) 0%, var(--gold) var(--fill, 100%), rgba(255,255,255,0.14) var(--fill, 100%), rgba(255,255,255,0.14) 100%);
+      outline:none;
+    }
+
+    .audio-slider::-webkit-slider-thumb {
+      -webkit-appearance:none;
+      appearance:none;
+      width:18px;
+      height:18px;
+      border-radius:50%;
+      border:2px solid #2a1d07;
+      background:#ffe09c;
+      box-shadow:0 4px 10px rgba(0,0,0,0.28);
+      cursor:pointer;
+    }
+
+    .audio-slider::-moz-range-thumb {
+      width:18px;
+      height:18px;
+      border-radius:50%;
+      border:2px solid #2a1d07;
+      background:#ffe09c;
+      box-shadow:0 4px 10px rgba(0,0,0,0.28);
+      cursor:pointer;
+    }
+
+    .audio-value {
+      min-width:42px;
+      color:var(--muted);
+      font-size:13px;
+      text-align:right;
+    }
+
+    .audio-toggle {
+      appearance:none;
+      border:1px solid rgba(255,255,255,0.12);
+      border-radius:999px;
+      background:rgba(255,255,255,0.06);
+      color:var(--text);
+      padding:10px 14px;
+      font:800 13px/1 system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      letter-spacing:0.08em;
+      text-transform:uppercase;
+      cursor:pointer;
+      transition:transform 160ms ease, border-color 160ms ease, background 160ms ease;
+    }
+
+    .audio-toggle:hover,
+    .audio-toggle:focus-visible {
+      transform:translateY(-1px);
+      border-color:rgba(242,207,123,0.45);
+      outline:none;
+    }
+
+    .audio-toggle.is-off {
+      opacity:0.76;
+      background:rgba(255,255,255,0.03);
+    }
+
+    .magister-difficulty-stack {
+      display:flex !important;
+      flex-direction:column !important;
+      gap:10px !important;
+      width:min(78vw, 320px) !important;
+      max-width:320px !important;
+      z-index:8 !important;
+    }
+
+    .magister-difficulty-btn {
+      width:100% !important;
+      min-height:46px !important;
+      padding:10px 12px !important;
+      font-size:clamp(14px, 1.8vw, 18px) !important;
+      line-height:1.1 !important;
+      white-space:normal !important;
+    }
+
+    .magister-back-btn {
+      appearance:none;
+      border:1px solid rgba(255,255,255,0.16);
+      border-radius:14px;
+      background:rgba(255,255,255,0.07);
+      color:var(--text);
+      min-height:46px;
+      padding:10px 12px;
+      font:800 14px/1 system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      letter-spacing:0.08em;
+      text-transform:uppercase;
+      cursor:pointer;
+      box-shadow:0 10px 24px rgba(0,0,0,0.22);
+      position:relative;
+    }
+
+    .magister-back-btn:hover,
+    .magister-back-btn:focus-visible {
+      outline:none;
+      transform:translateY(-1px);
+      border-color:rgba(242,207,123,0.42);
+    }
+
+    .magister-difficulty-btn.is-nav-active,
+    .magister-back-btn.is-nav-active {
+      border-color: rgba(242,207,123,0.92) !important;
+      background: linear-gradient(180deg, rgba(242,207,123,0.26), rgba(255,255,255,0.08)) !important;
+      box-shadow: 0 0 0 2px rgba(242,207,123,0.28), 0 16px 36px rgba(0,0,0,0.34) !important;
+      transform: translateY(-2px) scale(1.02) !important;
+      filter: brightness(1.06);
+    }
+
+    .magister-difficulty-btn.is-nav-active::after,
+    .magister-back-btn.is-nav-active::after {
+      content: "";
+      position: absolute;
+      inset: -6px;
+      border-radius: 18px;
+      border: 2px solid rgba(242,207,123,0.46);
+      pointer-events: none;
+      animation: magisterPulse 1.15s ease-in-out infinite;
+    }
+
+    @keyframes magisterPulse {
+      0%, 100% { opacity: 0.62; }
+      50% { opacity: 1; }
+    }
+
+    .magister-pause-character-btn {
+      appearance:none;
+      border:1px solid rgba(255,255,255,0.16);
+      border-radius:14px;
+      background:rgba(255,255,255,0.07);
+      color:var(--text);
+      min-height:46px;
+      padding:10px 12px;
+      font:800 14px/1 system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      letter-spacing:0.08em;
+      text-transform:uppercase;
+      cursor:pointer;
+      box-shadow:0 10px 24px rgba(0,0,0,0.22);
+    }
+
+
+    .magister-difficulty-hide {
+      display: none !important;
+      visibility: hidden !important;
+    }
+    .magister-pause-character-btn:hover,
+    .magister-pause-character-btn:focus-visible {
+      outline:none;
+      transform:translateY(-1px);
+      border-color:rgba(242,207,123,0.42);
+    }
+
+    @media (max-width: 700px), (max-height: 860px) {
+      :root { --footer-h: 0px; }
+
+      #characterSelect {
+        padding:8px;
+        padding-top:max(8px, var(--safe-top));
+        padding-bottom:max(8px, var(--safe-bottom));
+      }
+
+      .selector-panel {
+        width:min(100%, 760px);
+        height:calc(var(--app-h) - var(--safe-top) - var(--safe-bottom) - 16px);
+        max-height:calc(var(--app-h) - var(--safe-top) - var(--safe-bottom) - 16px);
+        border-radius:22px;
+        padding-bottom:84px;
+      }
+
+      .selector-header {
+        padding:14px 16px 4px;
+      }
+
+      .selector-kicker {
+        margin-bottom:6px;
+        font-size:11px;
+      }
+
+      .selector-title {
+        font-size:clamp(22px, 6vw, 32px);
+      }
+
+      .character-stage {
+        padding:0 8px 4px;
+      }
+
+      .character-stack {
+        min-height:240px;
+      }
+
+      .character-card {
+        width:clamp(94px, 24vw, 124px);
+        transform:
+          translate(-50%, -50%)
+          translateX(calc(var(--offset) * 36px))
+          translateY(calc(var(--abs-offset) * 10px + 12px))
+          rotateZ(calc(var(--offset) * 3deg))
+          rotateX(6deg)
+          rotateY(calc(var(--offset) * -9deg))
+          scale(calc(1 - var(--abs-offset) * 0.09));
+      }
+
+      .character-card.is-expanded {
+        width:min(88%, 320px);
+        max-height:50vh;
+      }
+
+      .character-card.is-expanded .card-art {
+        padding:12px 12px 72px;
+      }
+
+      .card-art {
+        padding:12px 10px 52px;
+      }
+
+      .card-name {
+        left:8px;
+        right:8px;
+        bottom:8px;
+        padding:8px 10px;
+        font-size:12px;
+      }
+
+      .selector-arrows {
+        inset:50% 6px auto 6px;
+      }
+
+      .selector-arrow {
+        width:44px;
+        height:44px;
+        font-size:24px;
+      }
+
+      .character-preview-overlay {
+        display:none;
+      }
+
+      .selector-actions {
+        left:10px;
+        right:10px;
+        bottom:max(10px, var(--safe-bottom));
+        gap:10px;
+      }
+
+      .play-btn {
+        min-height:52px;
+        padding:14px 12px;
+        font-size:14px;
+      }
+
+      #globalAudioFooter {
+        grid-template-columns:1fr;
+      }
+
+      .magister-difficulty-stack {
+        width:min(82vw, 300px) !important;
+        max-width:300px !important;
+      }
+
+      .magister-difficulty-btn,
+      .magister-back-btn,
+      .magister-pause-character-btn {
+        min-height:52px !important;
+        font-size:15px !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="desktopBands">
+    <div class="band left"></div>
+
+    <div id="gameWrap">
+      <canvas id="game" width="1080" height="1920"></canvas>
+      <div id="subtitle">
+        Arrossega un joc de la caixa al prestatge correcte
+      </div>
+
+      <div id="characterSelect" aria-label="Selecció de personatge">
+        <div class="selector-panel">
+          <div class="selector-header">
+            <div class="selector-kicker">MAGISTER ORDINIS</div>
+            <h1 class="selector-title">Tria el teu personatge</h1>
+          </div>
+
+          <div id="characterPreviewOverlay" class="character-preview-overlay" aria-hidden="true"><img id="characterPreviewImage" alt="" draggable="false"></div>
+
+          <div class="character-stage">
+            <div id="characterStack" class="character-stack"></div>
+            <div class="selector-arrows" aria-hidden="false">
+              <button id="charPrev" class="selector-arrow" type="button" aria-label="Personatge anterior"><span>‹</span></button>
+              <button id="charNext" class="selector-arrow" type="button" aria-label="Següent personatge"><span>›</span></button>
+            </div>
+          </div>
+
+          <div class="selector-actions">
+            <button id="playBtn" class="play-btn" type="button" disabled>Començar partida</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="band right"></div>
+  </div>
+
+    <audio id="introSong" src="assets/introsong.mp3" preload="auto" playsinline loop></audio>
+  <audio id="selectSfx" src="assets/selectaudio.mp3" preload="auto" playsinline></audio>
+  <audio id="okSfx" src="assets/okaudio.mp3" preload="auto" playsinline></audio>
+
+  <script>
+    (() => {
+      const CHARACTERS = ["JOU", "GEREK", "RIAU", "SANXES", "NAN"];
+      const CHARACTER_STORAGE_KEY = "magister-ordinis-selected-character";
+      const AUDIO_STORAGE_KEY = "magister-ordinis-audio-settings";
+
+      const gameWrap = document.getElementById("gameWrap");
+      const stack = document.getElementById("characterStack");
+      const playBtn = document.getElementById("playBtn");
+      const selector = document.getElementById("characterSelect");
+      const prevBtn = document.getElementById("charPrev");
+      const nextBtn = document.getElementById("charNext");
+      const previewOverlay = document.getElementById("characterPreviewOverlay");
+      const previewImage = document.getElementById("characterPreviewImage");
+      const subtitle = document.getElementById("subtitle");
+      const menuMusic = document.getElementById("introSong");
+      const gameMusic = null;
+      const selectSfx = document.getElementById("selectSfx");
+      const okSfx = document.getElementById("okSfx");
+
+      let selectedCharacter = null;
+      let selectedIndex = 0;
+      let expandedCharacter = null;
+      let gameLoaded = false;
+      let audioSettings = readAudioSettings();
+      let currentBgm = "none";
+      let previewAnimFrame = 0;
+      let previewFadeTimer = 0;
+
+      function hasDifficultyMenu(root = document) {
+        return !!root.querySelector('.magister-difficulty-stack');
+      }
+
+      function hasPauseMenu(root = document) {
+        return !!root.querySelector('.magister-pause-character-btn');
+      }
+
+      function isGameplayContext() {
+        return selector.classList.contains("hidden") && !hasDifficultyMenu(document) && !hasPauseMenu(document);
+      }
+
+      function isUiSfxTarget(target) {
+        const el = target?.closest?.(".character-card, #playBtn, #charPrev, #charNext, .magister-difficulty-btn, .magister-back-btn, .magister-pause-character-btn");
+        return el || null;
+      }
+
+      function setNavActive(target) {
+        const active = target?.closest?.('.magister-difficulty-btn, .magister-back-btn') || null;
+        if (!active) return;
+        document.querySelectorAll('.magister-difficulty-btn.is-nav-active, .magister-back-btn.is-nav-active').forEach((el) => {
+          if (el !== active) el.classList.remove('is-nav-active');
+        });
+        active.classList.add('is-nav-active');
+      }
+
+      const BLOCKED_MUSIC_PATTERNS = ["assets/musicmenu1.mp3"];
+
+      function isBlockedMusicSource(value) {
+        const src = String(value || '').toLowerCase();
+        return BLOCKED_MUSIC_PATTERNS.some((pattern) => src.includes(pattern.toLowerCase()));
+      }
+
+      function silenceBlockedMedia(media) {
+        if (!(media instanceof HTMLMediaElement)) return false;
+        const src = media.currentSrc || media.src || media.getAttribute?.('src') || '';
+        if (!isBlockedMusicSource(src)) return false;
+        try { media.pause(); } catch {}
+        try { media.currentTime = 0; } catch {}
+        try { media.loop = false; } catch {}
+        media.muted = true;
+        media.volume = 0;
+        media.dataset.magisterBlockedMusic = '1';
+        return true;
+      }
+
+      function silenceAllBlockedMusic(root = document) {
+        root.querySelectorAll?.('audio,video').forEach((media) => silenceBlockedMedia(media));
+      }
+
+      function getPortraitPath(name) {
+        return `assets/img/${name}_front.png`;
+      }
+
+      function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+      }
+
+      function normalizeText(value) {
+        return String(value || "")
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .trim()
+          .toLowerCase();
+      }
+
+      function readAudioSettings() {
+        try {
+          const saved = JSON.parse(localStorage.getItem(AUDIO_STORAGE_KEY) || "null");
+          const savedVolume = clamp(Number(saved?.volume), 0, 1);
+          return {
+            enabled: true,
+            volume: Number.isFinite(savedVolume) && savedVolume > 0 ? savedVolume : 0.85
+          };
+        } catch {
+          return { enabled: true, volume: 0.85 };
+        }
+      }
+
+      function saveAudioSettings() {
+        localStorage.setItem(AUDIO_STORAGE_KEY, JSON.stringify(audioSettings));
+      }
+
+      function applyAudioSettingsToElement(media) {
+        if (!(media instanceof HTMLMediaElement)) return;
+        media.volume = clamp(audioSettings.volume, 0, 1);
+        media.muted = !audioSettings.enabled || audioSettings.volume <= 0;
+        media.playsInline = true;
+      }
+
+      function getActiveBgmElement() {
+        if (currentBgm === "menu") return menuMusic;
+        if (currentBgm === "game") return gameMusic;
+        return null;
+      }
+
+
+      const originalMediaPlay = HTMLMediaElement.prototype.play;
+      HTMLMediaElement.prototype.play = function(...args) {
+        if (silenceBlockedMedia(this)) {
+          return Promise.resolve();
+        }
+        return originalMediaPlay.apply(this, args);
+      };
+
+      const originalSetAttribute = Element.prototype.setAttribute;
+      Element.prototype.setAttribute = function(name, value) {
+        const result = originalSetAttribute.call(this, name, value);
+        if ((name === 'src' || name === 'data-src') && this instanceof HTMLMediaElement) {
+          silenceBlockedMedia(this);
+        }
+        return result;
+      };
+
+      const OriginalAudio = window.Audio;
+      window.Audio = function(...args) {
+        const media = new OriginalAudio(...args);
+        silenceBlockedMedia(media);
+        return media;
+      };
+      window.Audio.prototype = OriginalAudio.prototype;
+
+      function safePlay(media) {
+        if (!(media instanceof HTMLMediaElement)) return;
+        applyAudioSettingsToElement(media);
+        const p = media.play();
+        if (p && typeof p.catch === "function") p.catch(() => {});
+      }
+
+      function getScreenAudioState(root = document) {
+        if (!gameLoaded) return "menu";
+        const gameState = String(window.__magisterGameState || "boot");
+        if (selector && !selector.classList.contains("hidden")) return "menu";
+        if (gameState === "boot" || gameState === "menu") return "menu";
+        return "none";
+      }
+
+      function stopAllBackgroundMusic(resetTime = true) {
+        [menuMusic, gameMusic].forEach((media) => {
+          if (!media) return;
+          media.pause();
+          if (resetTime) {
+            try { media.currentTime = 0; } catch {}
+          }
+        });
+      }
+
+      function updateBackgroundMusic(force = false) {
+        const wanted = getScreenAudioState(document);
+        const active = wanted === "game" ? gameMusic : wanted === "menu" ? menuMusic : null;
+
+        if (currentBgm === wanted) {
+          if (active) {
+            applyAudioSettingsToElement(active);
+            const shouldResume = force && !active.ended && active.paused && !active.muted && audioSettings.enabled && audioSettings.volume > 0;
+            if (shouldResume) safePlay(active);
+          }
+          return;
+        }
+
+        currentBgm = wanted;
+        stopAllBackgroundMusic(wanted !== "none");
+        if (!active) return;
+
+        applyAudioSettingsToElement(active);
+        if (!audioSettings.enabled || audioSettings.volume <= 0) return;
+        safePlay(active);
+      }
+
+      function applyAudioSettingsToPage() {
+        window.MAGISTER_AUDIO = {
+          enabled: audioSettings.enabled,
+          volume: audioSettings.volume,
+          muted: !audioSettings.enabled || audioSettings.volume <= 0
+        };
+        [menuMusic, gameMusic].forEach((media) => {
+          if (!media) return;
+          if (media === getActiveBgmElement()) {
+            applyAudioSettingsToElement(media);
+          } else {
+            media.muted = true;
+          }
+        });
+        [selectSfx, okSfx].forEach((media) => {
+          if (!media) return;
+          applyAudioSettingsToElement(media);
+        });
+        updateBackgroundMusic(false);
+      }
+
+      let audioUnlocked = false;
+      let sfxPool = [];
+
+      function installAudioHooks() {
+        if (menuMusic) {
+          menuMusic.loop = true;
+          menuMusic.preload = "auto";
+          menuMusic.playsInline = true;
+          try { menuMusic.load(); } catch {}
+        }
+        if (gameMusic) {
+          gameMusic.loop = true;
+          gameMusic.preload = "auto";
+          gameMusic.playsInline = true;
+          try { gameMusic.load(); } catch {}
+        }
+        [selectSfx, okSfx].forEach((media) => {
+          if (!media) return;
+          media.loop = false;
+          media.preload = "auto";
+          media.playsInline = true;
+          try { media.load(); } catch {}
+        });
+      }
+
+      function unlockAudio() {
+        if (audioUnlocked) return;
+        audioUnlocked = true;
+        [selectSfx, okSfx, menuMusic, gameMusic].forEach((media) => {
+          if (!(media instanceof HTMLMediaElement)) return;
+          applyAudioSettingsToElement(media);
+          try { media.load(); } catch {}
+        });
+      }
+
+      let lastSelectSfxAt = 0;
+      let lastSelectSfxKey = "";
+
+      function playUiSfx(media) {
+        if (!(media instanceof HTMLMediaElement)) return;
+        unlockAudio();
+        const src = media.currentSrc || media.src;
+        if (!src) return;
+
+        try {
+          sfxPool = sfxPool.filter((item) => !(item.paused && item.ended));
+        } catch {}
+
+        const player = new Audio(src);
+        player.preload = "auto";
+        player.loop = false;
+        player.playsInline = true;
+        applyAudioSettingsToElement(player);
+        player.muted = false;
+        player.volume = clamp(audioSettings.volume * 0.234375, 0, 1);
+
+        const cleanup = () => {
+          try { player.pause(); } catch {}
+          sfxPool = sfxPool.filter((item) => item !== player);
+        };
+        player.addEventListener("ended", cleanup, { once: true });
+        player.addEventListener("error", cleanup, { once: true });
+        sfxPool.push(player);
+
+        const p = player.play();
+        if (p && typeof p.catch === "function") {
+          p.catch(() => {
+            try {
+              applyAudioSettingsToElement(media);
+              media.muted = false;
+              media.currentTime = 0;
+              media.volume = clamp(audioSettings.volume * 0.234375, 0, 1);
+              media.play();
+            } catch {}
+          });
+        }
+      }
+
+      function playSelectSfx(key = "") {
+        if (isGameplayContext()) return;
+        const now = Date.now();
+        if (key && key === lastSelectSfxKey && now - lastSelectSfxAt < 120) return;
+        if (now - lastSelectSfxAt < 60) return;
+        lastSelectSfxAt = now;
+        lastSelectSfxKey = key || "generic";
+        playUiSfx(selectSfx);
+      }
+
+      function playOkSfx() {
+        playUiSfx(okSfx);
+      }
+
+      function makeCard(name, index) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "character-card";
+        button.dataset.character = name;
+        button.dataset.index = String(index);
+        button.setAttribute("aria-label", `Seleccionar ${name}`);
+
+        const art = document.createElement("div");
+        art.className = "card-art";
+
+        const img = document.createElement("img");
+        img.src = getPortraitPath(name);
+        img.alt = `${name} front`;
+        img.loading = "eager";
+        img.draggable = false;
+        img.onerror = () => {
+          art.innerHTML = `<div class="portrait-fallback">${name}</div>`;
+        };
+
+        art.appendChild(img);
+        button.appendChild(art);
+
+        const label = document.createElement("div");
+        label.className = "card-name";
+        label.textContent = name;
+        button.appendChild(label);
+
+        button.addEventListener("pointerenter", () => playSelectSfx(`card:pointer:${name}`), { passive:true });
+        button.addEventListener("focus", () => playSelectSfx(`card:focus:${name}`), true);
+        button.addEventListener("click", () => { playOkSfx(); handleCardClick(name, index); });
+        return button;
+      }
+
+      function renderStack() {
+        CHARACTERS.forEach((name, index) => stack.appendChild(makeCard(name, index)));
+      }
+
+      function updateStackPositions() {
+        const cards = Array.from(document.querySelectorAll(".character-card"));
+        cards.forEach((card, index) => {
+          const rawOffset = index - selectedIndex;
+          const offset = clamp(rawOffset, -2.2, 2.2);
+          const absOffset = Math.abs(offset);
+          const isSelected = card.dataset.character === selectedCharacter;
+          const isExpanded = card.dataset.character === expandedCharacter;
+          const shouldFade = expandedCharacter && !isExpanded;
+
+          card.style.setProperty("--offset", offset);
+          card.style.setProperty("--abs-offset", absOffset);
+          card.classList.toggle("is-selected", isSelected);
+          card.classList.toggle("is-expanded", isExpanded);
+          card.classList.toggle("is-faded", !!shouldFade);
+          card.setAttribute("aria-pressed", String(isSelected));
+          card.style.zIndex = String(isExpanded ? 500 : isSelected ? 220 : 100 - Math.round(absOffset * 10));
+        });
+      }
+
+      function syncSelectionUI() {
+        playBtn.disabled = !selectedCharacter;
+        playBtn.textContent = selectedCharacter ? `Començar amb ${selectedCharacter}` : "Començar partida";
+        window.SELECTED_CHARACTER = selectedCharacter;
+        if (selectedCharacter) updateCharacterPreview(selectedCharacter);
+      }
+
+      function updateCharacterPreview(name) {
+        if (!previewOverlay || !previewImage || !name) return;
+        const nextSrc = getPortraitPath(name);
+        clearTimeout(previewFadeTimer);
+        cancelAnimationFrame(previewAnimFrame);
+        previewOverlay.classList.remove("is-visible");
+        previewImage.src = nextSrc;
+        previewImage.alt = `${name} front preview`;
+        previewAnimFrame = requestAnimationFrame(() => {
+          previewOverlay.classList.add("is-visible");
+        });
+        previewFadeTimer = window.setTimeout(() => {
+          previewOverlay.classList.add("is-visible");
+        }, 40);
+      }
+
+      function moveCharacterSelection(direction) {
+        const next = (selectedIndex + direction + CHARACTERS.length) % CHARACTERS.length;
+        playSelectSfx(`carousel:${direction > 0 ? 'next' : 'prev'}:${next}`);
+        selectCharacter(CHARACTERS[next], next);
+      }
+
+      function selectCharacter(name, index) {
+        selectedCharacter = name;
+        selectedIndex = index;
+        expandedCharacter = name;
+        localStorage.setItem(CHARACTER_STORAGE_KEY, name);
+        updateStackPositions();
+        syncSelectionUI();
+      }
+
+      function handleCardClick(name, index) {
+        if (expandedCharacter === name) {
+          expandedCharacter = null;
+          selectedCharacter = name;
+          selectedIndex = index;
+          localStorage.setItem(CHARACTER_STORAGE_KEY, name);
+          updateStackPositions();
+          syncSelectionUI();
+          return;
+        }
+        selectCharacter(name, index);
+      }
+
+      window.magisterGoToCharacters = function() {
+        showCharacterMenu();
+      };
+
+      function showCharacterMenu() {
+        window.__magisterGameState = "boot";
+        selector.classList.remove("hidden");
+        selector.style.pointerEvents = "auto";
+        updateStackPositions();
+        updateBackgroundMusic(true);
+      }
+
+      function hideCharacterMenu() {
+        selector.classList.add("hidden");
+        updateBackgroundMusic(true);
+      }
+
+      function getSelectedGameplayFrontToken() {
+        if (!selectedCharacter) return null;
+        if (String(selectedCharacter).toUpperCase() === "JOU" && isGameplayContext()) return `${selectedCharacter}_front2`;
+        return `${selectedCharacter}_front`;
+      }
+
+      function rewriteCharacterAsset(path) {
+        if (!selectedCharacter || typeof path !== "string") return path;
+        const frontToken = getSelectedGameplayFrontToken();
+        return path
+          .replace(/character_front(\.[a-z0-9]+)(\?.*)?$/i, `${frontToken}$1$2`)
+          .replace(/character_back_idle(\.[a-z0-9]+)(\?.*)?$/i, `${selectedCharacter}_back_idle$1$2`)
+          .replace(/character_back_left(\.[a-z0-9]+)(\?.*)?$/i, `${selectedCharacter}_back_left$1$2`)
+          .replace(/character_back_right(\.[a-z0-9]+)(\?.*)?$/i, `${selectedCharacter}_back_right$1$2`);
+      }
+
+      function rewriteCharacterStyle(value) {
+        if (!selectedCharacter || typeof value !== "string") return value;
+        const frontToken = getSelectedGameplayFrontToken();
+        let next = value
+          .replace(/character_front(?=\.[a-z0-9]+)/gi, `${frontToken}`)
+          .replace(/character_back_idle(?=\.[a-z0-9]+)/gi, `${selectedCharacter}_back_idle`)
+          .replace(/character_back_left(?=\.[a-z0-9]+)/gi, `${selectedCharacter}_back_left`)
+          .replace(/character_back_right(?=\.[a-z0-9]+)/gi, `${selectedCharacter}_back_right`);
+        if (/_front\.[a-z0-9]+/i.test(next)) {
+          if (!/background-size\s*:/i.test(next)) next += ';background-size:auto 100%';
+          else next = next.replace(/background-size\s*:[^;]+/i, 'background-size:auto 100%');
+          if (!/background-repeat\s*:/i.test(next)) next += ';background-repeat:no-repeat';
+          if (!/background-position\s*:/i.test(next)) next += ';background-position:center center';
+        }
+        return next;
+      }
+
+      function rewriteExistingAssets(root = document) {
+        root.querySelectorAll("img").forEach((img) => {
+          const current = img.getAttribute("src");
+          if (current) {
+            const next = rewriteCharacterAsset(current);
+            if (next !== current) img.setAttribute("src", next);
+            if (/_front(\.[a-z0-9]+)(\?.*)?$/i.test(next || current)) {
+              img.style.width = '120%';
+              img.style.maxWidth = 'none';
+              img.style.height = '100%';
+              img.style.objectFit = 'contain';
+              img.style.objectPosition = 'center center';
+            }
+          }
+        });
+
+        root.querySelectorAll("[style]").forEach((el) => {
+          const style = el.getAttribute("style");
+          const next = rewriteCharacterStyle(style);
+          if (next !== style) el.setAttribute("style", next);
+        });
+      }
+
+      function installCanvasGuards() {
+        if (window.__magisterCanvasGuardsInstalled) return;
+        window.__magisterCanvasGuardsInstalled = true;
+
+        const norm = (value) => normalizeText(String(value || ""));
+
+        const originalDrawImage = CanvasRenderingContext2D && CanvasRenderingContext2D.prototype.drawImage;
+        if (originalDrawImage) {
+          CanvasRenderingContext2D.prototype.drawImage = function(...args) {
+            const img = args[0];
+            const src = String(img?.src || img?.currentSrc || img?.getAttribute?.('src') || '').toLowerCase();
+            if (src.includes('pops1.png') || src.includes('/pops1') || src.endsWith('pops1')) {
+              return;
+            }
+            const selectedFrontToken = String((selectedCharacter || '') + '_front').toLowerCase();
+            const isSelectedFront = !!selectedCharacter && src.includes(selectedFrontToken);
+            if (isSelectedFront) {
+              const stretched = args.slice();
+              if (stretched.length === 3) {
+                const dw = (img?.naturalWidth || img?.width || 0) * 1.2;
+                const dh = (img?.naturalHeight || img?.height || 0) || 0;
+                if (dw && dh) {
+                  stretched[1] = Number(stretched[1] || 0) - ((dw - (img?.naturalWidth || img?.width || dw / 1.2)) / 2);
+                  stretched.push(dw, dh);
+                }
+              } else if (stretched.length === 5) {
+                const oldW = Number(stretched[3] || 0);
+                const newW = oldW * 1.2;
+                stretched[1] = Number(stretched[1] || 0) - ((newW - oldW) / 2);
+                stretched[3] = newW;
+              } else if (stretched.length >= 9) {
+                const oldW = Number(stretched[7] || 0);
+                const newW = oldW * 1.2;
+                stretched[5] = Number(stretched[5] || 0) - ((newW - oldW) / 2);
+                stretched[7] = newW;
+              }
+              return originalDrawImage.apply(this, stretched);
+            }
+            return originalDrawImage.apply(this, args);
+          };
+        }
+
+        const originalFillText = CanvasRenderingContext2D && CanvasRenderingContext2D.prototype.fillText;
+        if (originalFillText) {
+          CanvasRenderingContext2D.prototype.fillText = function(textValue, ...args) {
+            const txt = norm(textValue);
+            if (txt.includes('toca per comencar') || txt.includes('toca per començar')) return;
+            return originalFillText.call(this, textValue, ...args);
+          };
+        }
+
+        const originalStrokeText = CanvasRenderingContext2D && CanvasRenderingContext2D.prototype.strokeText;
+        if (originalStrokeText) {
+          CanvasRenderingContext2D.prototype.strokeText = function(textValue, ...args) {
+            const txt = norm(textValue);
+            if (txt.includes('toca per comencar') || txt.includes('toca per començar')) return;
+            return originalStrokeText.call(this, textValue, ...args);
+          };
+        }
+      }
+
+      function installAssetRewriteHooks() {
+        window.SELECTED_CHARACTER = selectedCharacter;
+        window.rewriteCharacterAsset = rewriteCharacterAsset;
+
+        const imageSrcDescriptor = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, "src");
+        if (imageSrcDescriptor && imageSrcDescriptor.set && !window.__characterImageRewriteInstalled) {
+          Object.defineProperty(HTMLImageElement.prototype, "src", {
+            configurable: true,
+            enumerable: imageSrcDescriptor.enumerable,
+            get: imageSrcDescriptor.get,
+            set(value) {
+              imageSrcDescriptor.set.call(this, rewriteCharacterAsset(value));
+            }
+          });
+          window.__characterImageRewriteInstalled = true;
+        }
+
+        const originalSetAttribute = Element.prototype.setAttribute;
+        if (!window.__characterSetAttributeRewriteInstalled) {
+          Element.prototype.setAttribute = function(name, value) {
+            if (this instanceof HTMLImageElement && name === "src") {
+              return originalSetAttribute.call(this, name, rewriteCharacterAsset(value));
+            }
+            if (name === "style" && typeof value === "string") {
+              return originalSetAttribute.call(this, name, rewriteCharacterStyle(value));
+            }
+            return originalSetAttribute.call(this, name, value);
+          };
+          window.__characterSetAttributeRewriteInstalled = true;
+        }
+      }
+
+      function findButtonsWithText(root = document) {
+        return Array.from(root.querySelectorAll("button, [role='button'], a"))
+          .filter((el) => normalizeText(el.textContent).length > 0);
+      }
+
+      function removeStartPrompt(root = document) {
+        const candidates = Array.from(root.querySelectorAll("div, p, span, button, [role='button'], strong, small"));
+        candidates.forEach((el) => {
+          const txt = normalizeText(el.textContent);
+          if (txt.includes("toca per comencar") || txt.includes("toca per començar")) {
+            el.remove();
+            return;
+          }
+          if (txt === "reprendre") {
+            el.textContent = "RESTART";
+          }
+        });
+      }
+
+      function patchDifficultyMenu(root = document) {
+        const buttons = findButtonsWithText(root);
+        const guzmanButton = buttons.find((btn) => normalizeText(btn.textContent).includes("guzman"));
+        if (!guzmanButton) return;
+
+        const buttonParent = guzmanButton.parentElement;
+        if (!buttonParent) return;
+
+        if (!buttonParent.classList.contains("magister-difficulty-stack")) {
+          buttonParent.classList.add("magister-difficulty-stack");
+        }
+
+        const siblingButtons = Array.from(buttonParent.children).filter((el) => {
+          const tag = el.tagName;
+          return tag === "BUTTON" || el.getAttribute("role") === "button" || tag === "A";
+        });
+
+        const desiredDifficultyLabels = ["FÀCIL 20", "NORMAL 40", "GUZMÁN 80"];
+        siblingButtons.slice(0, 3).forEach((btn, idx) => {
+          const label = desiredDifficultyLabels[idx];
+          if (label) {
+            btn.textContent = label;
+            btn.setAttribute("aria-label", label);
+            btn.setAttribute("title", label);
+            btn.dataset.magisterDifficultyLabel = label;
+          }
+        });
+
+        siblingButtons.forEach((btn, idx) => {
+          btn.classList.add("magister-difficulty-btn");
+          if (!btn.dataset.magisterNavBound) {
+            btn.dataset.magisterNavBound = "1";
+            btn.addEventListener("pointerenter", () => { setNavActive(btn); playSelectSfx(`difficulty:pointer:${idx}:${normalizeText(btn.textContent)}`); }, { passive:true });
+            btn.addEventListener("focus", () => { setNavActive(btn); playSelectSfx(`difficulty:focus:${idx}:${normalizeText(btn.textContent)}`); }, true);
+            btn.addEventListener("click", () => setNavActive(btn), true);
+          }
+        });
+
+        let backBtn = buttonParent.querySelector(".magister-back-btn");
+        if (!backBtn) {
+          backBtn = document.createElement("button");
+          backBtn.type = "button";
+          backBtn.className = "magister-back-btn";
+          backBtn.textContent = "Personatges";
+          backBtn.addEventListener("pointerenter", () => { setNavActive(backBtn); playSelectSfx(`difficulty:pointer:back`); }, { passive:true });
+          backBtn.addEventListener("focus", () => { setNavActive(backBtn); playSelectSfx(`difficulty:focus:back`); }, true);
+          backBtn.addEventListener("click", () => {
+            setNavActive(backBtn);
+            playOkSfx();
+            stopAllBackgroundMusic(true);
+            currentBgm = "none";
+            window.location.reload();
+          });
+          guzmanButton.insertAdjacentElement("afterend", backBtn);
+        }
+
+        const difficultyContainer = buttonParent.parentElement || buttonParent;
+        const visualCandidates = Array.from(difficultyContainer.querySelectorAll("img, canvas, svg, [style*='character_'], [style*='_front'], [style*='_back_'], [style*='pops1'], [class*='character'], [id*='character']"));
+        visualCandidates.forEach((el) => {
+          const src = (el.getAttribute?.("src") || "").toLowerCase();
+          const style = (el.getAttribute?.("style") || "").toLowerCase();
+          const isPops = src.includes("pops1.png") || style.includes("pops1.png") || src.includes("pops1") || style.includes("pops1");
+          const looksLikeCharacter = isPops || el.matches?.("canvas, svg, [style*='character_'], [style*='_front'], [style*='_back_'], [class*='character'], [id*='character']");
+          if (!looksLikeCharacter) return;
+          if (el === buttonParent || buttonParent.contains(el) || el === backBtn) return;
+          el.style.setProperty("display", "none", "important");
+          el.style.setProperty("visibility", "hidden", "important");
+          el.setAttribute?.("aria-hidden", "true");
+        });
+
+        Array.from(difficultyContainer.querySelectorAll("div, span, p, button, [role='button'], strong, small")).forEach((el) => {
+          const txt = normalizeText(el.textContent);
+          if (txt.includes("toca per comencar") || txt.includes("toca per començar")) {
+            el.style.setProperty("display", "none", "important");
+            el.style.setProperty("visibility", "hidden", "important");
+            el.style.setProperty("opacity", "0", "important");
+            el.setAttribute?.("aria-hidden", "true");
+          }
+        });
+
+        removeStartPrompt(difficultyContainer);
+        updateDifficultyFocusState(difficultyContainer);
+        updateBackgroundMusic(true);
+      }
+
+
+      function updateDifficultyFocusState(root = document) {
+        const targets = Array.from(root.querySelectorAll('.magister-difficulty-btn, .magister-back-btn'));
+        let active = document.activeElement && document.activeElement.closest ? document.activeElement.closest('.magister-difficulty-btn, .magister-back-btn') : null;
+        if (!active || !targets.includes(active)) active = targets.find((el) => el.matches(':hover')) || null;
+        if (!active) active = targets.find((el) => el.classList.contains('is-nav-active')) || null;
+        if (!active && targets.length) active = targets[0];
+        targets.forEach((el) => el.classList.toggle('is-nav-active', el === active));
+      }
+
+      function hidePopsDifficultyArt(root = document) {
+        Array.from(root.querySelectorAll("img, [style], canvas, svg")).forEach((el) => {
+          const src = (el.getAttribute?.("src") || "").toLowerCase();
+          const style = (el.getAttribute?.("style") || "").toLowerCase();
+          if (src.includes("pops1.png") || style.includes("pops1.png") || src.includes("pops1") || style.includes("pops1")) {
+            el.style.setProperty("display", "none", "important");
+            el.style.setProperty("visibility", "hidden", "important");
+            el.setAttribute?.("aria-hidden", "true");
+          }
+        });
+      }
+
+      function patchPauseMenu(root = document) {
+        const buttons = findButtonsWithText(root);
+        const restartButton = buttons.find((btn) => {
+          const txt = normalizeText(btn.textContent);
+          return txt === "restart" || txt === "reprendre";
+        });
+        if (!restartButton) return;
+
+        const parent = restartButton.parentElement;
+        if (!parent || parent.querySelector(".magister-pause-character-btn")) return;
+
+        const chooserBtn = document.createElement("button");
+        chooserBtn.type = "button";
+        chooserBtn.className = restartButton.className || "magister-pause-character-btn";
+        chooserBtn.classList.add("magister-pause-character-btn");
+        chooserBtn.textContent = "Triar Personatge";
+        chooserBtn.addEventListener("click", () => {
+          playOkSfx();
+          stopAllBackgroundMusic(true);
+          currentBgm = "none";
+          window.location.reload();
+        });
+        parent.appendChild(chooserBtn);
+      }
+
+      function patchGamePieces(root = document) {
+        const pieces = Array.from(root.querySelectorAll("img[src*='game'], img[src*='Game'], [draggable='true']"));
+        pieces.forEach((el) => {
+          if (!(el instanceof HTMLElement) || el.dataset.magisterHitPatched === "1") return;
+          el.dataset.magisterHitPatched = "1";
+          el.style.touchAction = "none";
+          el.style.pointerEvents = "auto";
+          el.style.userSelect = "none";
+          el.style.webkitUserDrag = "none";
+          if (el.tagName === "IMG") {
+            el.style.padding = "18px";
+            el.style.margin = "-18px";
+            el.style.boxSizing = "content-box";
+          }
+          if (el.parentElement) {
+            el.parentElement.style.overflow = "visible";
+          }
+        });
+      }
+
+      function installMenuObserver() {
+        if (window.__magisterMenuObserver) return;
+        const observer = new MutationObserver((mutations) => {
+          mutations.forEach((mutation) => {
+            mutation.addedNodes.forEach((node) => {
+              if (!(node instanceof HTMLElement)) return;
+              patchDifficultyMenu(node);
+              patchPauseMenu(node);
+              patchGamePieces(node);
+              removeStartPrompt(node);
+              hidePopsDifficultyArt(node);
+              rewriteExistingAssets(node);
+            });
+          });
+          patchDifficultyMenu(document);
+          patchPauseMenu(document);
+          patchGamePieces(document);
+          removeStartPrompt(document);
+          hidePopsDifficultyArt(document);
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+        window.__magisterMenuObserver = observer;
+      }
+
+      function loadGame() {
+        if (gameLoaded || !selectedCharacter) return;
+        gameLoaded = true;
+        window.__magisterGameState = "boot";
+        subtitle.classList.add("hidden");
+        installAudioHooks();
+        applyAudioSettingsToPage();
+        installAssetRewriteHooks();
+        installCanvasGuards();
+        installMenuObserver();
+        hideCharacterMenu();
+        updateBackgroundMusic(true);
+
+        const gameScript = document.createElement("script");
+        gameScript.src = "game_v4-1.js";
+        gameScript.defer = true;
+        gameScript.onload = () => {
+          patchDifficultyMenu(document);
+          patchPauseMenu(document);
+          patchGamePieces(document);
+          rewriteExistingAssets(document);
+          removeStartPrompt(document);
+          hidePopsDifficultyArt(document);
+          applyAudioSettingsToPage();
+          updateBackgroundMusic(false);
+          silenceAllBlockedMusic(document);
+        };
+        document.body.appendChild(gameScript);
+      }
+
+      renderStack();
+
+      const savedCharacter = localStorage.getItem(CHARACTER_STORAGE_KEY);
+      const initialIndex = savedCharacter && CHARACTERS.includes(savedCharacter) ? CHARACTERS.indexOf(savedCharacter) : 2;
+      selectedIndex = initialIndex;
+      selectedCharacter = CHARACTERS[initialIndex];
+      expandedCharacter = null;
+      updateStackPositions();
+      syncSelectionUI();
+
+      installAudioHooks();
+      applyAudioSettingsToPage();
+      installAssetRewriteHooks();
+      installCanvasGuards();
+      installMenuObserver();
+      patchPauseMenu(document);
+      patchGamePieces(document);
+      removeStartPrompt(document);
+      hidePopsDifficultyArt(document);
+      updateDifficultyFocusState(document);
+      updateBackgroundMusic(true);
+      silenceAllBlockedMusic(document);
+
+      prevBtn?.addEventListener("click", () => {
+        moveCharacterSelection(-1);
+      });
+
+      nextBtn?.addEventListener("click", () => {
+        moveCharacterSelection(1);
+      });
+
+      playBtn.addEventListener("click", () => { playOkSfx(); loadGame(); });
+
+      ["pointerdown", "touchstart", "click", "keydown"].forEach((eventName) => {
+        const unlockHandler = () => {
+          unlockAudio();
+          applyAudioSettingsToPage();
+          updateBackgroundMusic(false);
+        };
+        document.addEventListener(eventName, unlockHandler, { passive: true, capture: true });
+        window.addEventListener?.(eventName, unlockHandler, { passive: true, capture: true });
+      });
+
+      ["pointerdown", "touchstart", "click", "keydown", "visibilitychange", "focus"].forEach((eventName) => {
+        const handler = () => {
+          if (eventName === "visibilitychange" && document.visibilityState !== "visible") return;
+          updateBackgroundMusic(false);
+          applyAudioSettingsToPage();
+          silenceAllBlockedMusic(document);
+        };
+        document.addEventListener(eventName, handler, { passive: true });
+        window.addEventListener?.(eventName, handler, { passive: true });
+      });
+
+
+      document.addEventListener("focusin", (event) => {
+        const target = isUiSfxTarget(event.target);
+        if (!target) return;
+        if (target.matches('.magister-difficulty-btn, .magister-back-btn')) setNavActive(target);
+        playSelectSfx(`focus:${normalizeText(target.textContent)}:${target.className}`);
+      }, true);
+
+      document.addEventListener("pointerover", (event) => {
+        const target = isUiSfxTarget(event.target);
+        if (!target) return;
+        if (target.matches('.magister-difficulty-btn, .magister-back-btn')) setNavActive(target);
+        playSelectSfx(`over:${normalizeText(target.textContent)}:${target.className}`);
+      }, true);
+
+      document.addEventListener("keydown", (event) => {
+        const key = event.key;
+        const activeUi = isUiSfxTarget(document.activeElement);
+        if (["ArrowUp","ArrowDown","Tab"].includes(key) && (activeUi || hasDifficultyMenu(document) || hasPauseMenu(document))) {
+          queueMicrotask(() => updateDifficultyFocusState(document));
+          playSelectSfx(`key:${key}:${document.activeElement?.textContent || ''}`);
+          return;
+        }
+        if (["Enter"," ","Spacebar"].includes(key) && activeUi) {
+          playOkSfx();
+        }
+      }, true);
+
+      document.addEventListener("click", (event) => {
+        const target = isUiSfxTarget(event.target);
+        if (!target) return;
+        if (target === playBtn || target === prevBtn || target === nextBtn || target.classList.contains("character-card") || target.classList.contains("magister-back-btn") || target.classList.contains("magister-pause-character-btn")) return;
+        playOkSfx();
+      }, true);
+
+      ["focusin", "pointerover", "pointerenter", "mousemove", "keydown", "click"].forEach((eventName) => {
+        document.addEventListener(eventName, () => updateDifficultyFocusState(document), true);
+      });
+
+      const blockedMusicObserver = new MutationObserver(() => {
+        silenceAllBlockedMusic(document);
+      });
+      blockedMusicObserver.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['src'] });
+
+      document.addEventListener("keydown", (event) => {
+        if (selector.classList.contains("hidden")) return;
+        if (event.key === "ArrowLeft") {
+          const next = (selectedIndex - 1 + CHARACTERS.length) % CHARACTERS.length;
+          playSelectSfx(`arrow:left:${next}`);
+          selectCharacter(CHARACTERS[next], next);
+        } else if (event.key === "ArrowRight") {
+          const next = (selectedIndex + 1) % CHARACTERS.length;
+          playSelectSfx(`arrow:right:${next}`);
+          selectCharacter(CHARACTERS[next], next);
+        } else if (event.key === "Escape" && expandedCharacter) {
+          expandedCharacter = null;
+          updateStackPositions();
+        } else if (event.key === "Enter" && !playBtn.disabled) {
+          playOkSfx();
+          loadGame();
+        }
+      });
+    })();
+  </script>
+
+  <script>
+    (function(){
+      try { document.title = 'v4-1'; } catch (e) {}
+      const mapText = (value) => {
+        const text = String(value ?? '');
+        const key = text.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+        if (key === 'facil' || key === 'facil 20') return 'FÀCIL 20';
+        if (key === 'normal' || key === 'normal 40') return 'NORMAL 40';
+        if (key === 'guzman' || key === 'guzman 80') return 'GUZMÁN 80';
+        if (key === 'personatges') return 'PERSONATGES';
+        if (key.includes('toca per comencar') || key.includes('toca per començar')) return '';
+        return text;
+      };
+      const maybePatchCanvas = (protoName) => {
+        const proto = window.CanvasRenderingContext2D && CanvasRenderingContext2D.prototype;
+        if (!proto || !proto[protoName] || proto[protoName].__magisterPatched) return;
+        const original = proto[protoName];
+        const wrapped = function(text, ...args) {
+          const mapped = mapText(text);
+          if (mapped === '') return;
+          return original.call(this, mapped, ...args);
+        };
+        wrapped.__magisterPatched = true;
+        proto[protoName] = wrapped;
+      };
+      maybePatchCanvas('fillText');
+      maybePatchCanvas('strokeText');
+
+      const relabelDom = () => {
+        const all = Array.from(document.querySelectorAll('button, [role="button"], a, div, span, p'));
+        all.forEach((el) => {
+          const txt = (el.textContent || '').trim();
+          if (!txt) return;
+          const mapped = mapText(txt);
+          if (mapped === '') {
+            if (/toca per comenc/i.test(txt)) {
+              el.style.setProperty('display','none','important');
+              el.setAttribute('aria-hidden','true');
+            }
+            return;
+          }
+          if (mapped !== txt) el.textContent = mapped;
+        });
+      };
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', relabelDom, {once:true});
+      } else {
+        relabelDom();
+      }
+      new MutationObserver(relabelDom).observe(document.documentElement, {childList:true, subtree:true, characterData:true});
+    })();
+  </script>
+
+  <script>
+    (() => {
+      const applyViewportHeight = () => {
+        const vv = window.visualViewport;
+        const h = vv ? vv.height : window.innerHeight;
+        document.documentElement.style.setProperty('--app-h', `${Math.round(h)}px`);
+      };
+      applyViewportHeight();
+      window.addEventListener('resize', applyViewportHeight, { passive:true });
+      window.visualViewport?.addEventListener('resize', applyViewportHeight, { passive:true });
+      window.visualViewport?.addEventListener('scroll', applyViewportHeight, { passive:true });
+    })();
+  </script>
+
+</body>
+</html>
